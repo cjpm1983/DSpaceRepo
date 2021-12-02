@@ -23,14 +23,14 @@ class repository_dspacerepo extends repository {
 
     public static function get_type_option_names() {
         
-	//Palacios: En las versiones actuales se hace de esta manera	
+	//Observación: En las versiones actuales se hace de esta manera	
 	return array_merge(parent::get_type_option_names(), array('dspace_url'));
 
 	//$option_names = array('dspace_url');
         //return $option_names;
     }
 
-	//Palacios: La documentacion dice que debe ser 
+	//Observación: La documentacion dice que debe ser 
 	//public static function type_config_form($mform, $classname='repository')  
 
     public static function type_config_form($mform, $classname='repository') {
@@ -39,21 +39,21 @@ class repository_dspacerepo extends repository {
         $dspaceUrl = get_config('dspacerepo', 'dspace_url');
 		
         //$mform->addElement('text', 'dspace_url', get_string('dspace_url', 'repository_dspacerepo'), array('value' => $dspaceUrl,'size' => '60'));
-        //Palacios: no se especifica el value en la documentacion actual
+        //Observación: no se especifica el value en la documentacion actual
 	    $mform->addElement('text', 'dspace_url', get_string('dspace_url', 'repository_dspacerepo'), array('size' => '200'));
         //Hacemos requerido la url del repositorio
         $mform->addRule('dspace_url', get_string('required'), 'required', null, 'client');
 
-		//Palacios: Si no estecifico tipo da un warning
+		//Observación: Si no estecifico tipo da un warning
         $mform->setType('dspace_url', PARAM_TEXT);
         
-        //Palacios: Pudiera poner por defecto el dspace de la UCI?
+        //Observación: Pudiera poner por defecto el dspace de la UCI?
         //$mform->setDefault('dspace_url', $default_rest_url);
         
     }
 
 /*
-    //Palacios: Puede tener una validacion de dspace_url
+    //Observación: Puede tener una validacion de dspace_url
     type_form_validation($mform, $data, $errors)
     This function must be declared static
     Optional. Use this function if you need to validate some variables submitted by plugin settings form. To use it, check through the associative array of data provided ('settingname' => value) for any errors. Then push the items to $error array in the format ("fieldname" => "human readable error message") to have them highlighted in the form.
@@ -104,9 +104,20 @@ class repository_dspacerepo extends repository {
         }
         elseif(array_search("communities",$pathArray)){
             //print_r($path);
-		    $results = $this->call_api("GET", str_replace("/rest/","",$path)."/?expand=collections");
-			//print_r($results);
-            foreach($results->collections as $result) {
+            $results_communities = $this->call_api("GET", str_replace("/rest/","",$path)."/?expand=subCommunities");
+            foreach($results_communities->subcommunities as $result) {
+
+                $list['list'][] = array(
+                    'dynload'=>true,
+                    'title' => $result->name,
+                    'children'=> array(),
+					'path' => $result->link,
+                    'icon' => $CFG->wwwroot."/repository/dspacerepo/pix/com.jpeg", 
+                );
+            } 
+
+		    $results_collections = $this->call_api("GET", str_replace("/rest/","",$path)."/?expand=collections");
+            foreach($results_collections->collections as $result) {
                 $list['list'][] = array(
                     'dynload'=>true,
                     'title' => $result->name,
@@ -114,8 +125,9 @@ class repository_dspacerepo extends repository {
 					'path' => $result->link,
                     'icon' => $CFG->wwwroot."/repository/dspacerepo/pix/col.jpeg", 
                 );
-            } 
-		   $list['path'] = array(array('name'=>'Comunidades','path'=>'/'), array('name'=>$result->name, 'path'=>$path ));
+            }            
+
+		   $list['path'] = array(array('name'=>'Comunidades','path'=>'/'), array('name'=>$results_communities->name, 'path'=>$path ));
            
            //$this->supported_returntypes()->FILE_EXTERNAL;
         }
