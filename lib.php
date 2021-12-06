@@ -87,7 +87,7 @@ class repository_dspacerepo extends repository {
         //Filtramos el path por communities y collections y agregamos unos iconos
 
         if(count($pathArray)<=2) {
-            $results = $this->call_api("GET", "communities");
+            $results = $this->call_api("GET", "communities/top-communities");
 			
             foreach($results as $result) {
                 $list['list'][] = array(
