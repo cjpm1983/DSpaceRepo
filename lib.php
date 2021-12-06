@@ -83,19 +83,23 @@ class repository_dspacerepo extends repository {
         $list['nosearch'] = true;
         $list['list'] = array();
         
-        
         //Filtramos el path por communities y collections y agregamos unos iconos
 
         if(count($pathArray)<=2) {
-            $results = $this->call_api("GET", "communities");
+            $results = $this->call_api("GET", "communities/top-communities");
 			
             foreach($results as $result) {
+                $new_path = $result->link;
+                if(isset($result->id)){  
+                    $new_path = "/rest/communities/".$result->id; 
+                }
+
                 $list['list'][] = array(
 					'dynload'=>true,
                     'title' => $result->name,
                     'children'=> array(),
                     'icon' => $CFG->wwwroot."/repository/dspacerepo/pix/com.jpeg",
-                    'path' =>  $result->link,
+                    'path' =>  $new_path,
                 );
             } 
 			$list['path'] = array(array('name'=>'Comunidades','path'=>'/'));
@@ -106,100 +110,156 @@ class repository_dspacerepo extends repository {
             //print_r($path);
             $results_communities = $this->call_api("GET", str_replace("/rest/","",$path)."/?expand=subCommunities");
             foreach($results_communities->subcommunities as $result) {
+                $new_path = $result->link;
+                if(isset($result->id)){  
+                    $new_path = "/rest/communities/".$result->id; 
+                }
 
                 $list['list'][] = array(
                     'dynload'=>true,
                     'title' => $result->name,
                     'children'=> array(),
-					'path' => $result->link,
+					'path' => $new_path,
                     'icon' => $CFG->wwwroot."/repository/dspacerepo/pix/com.jpeg", 
                 );
             } 
 
 		    $results_collections = $this->call_api("GET", str_replace("/rest/","",$path)."/?expand=collections");
             foreach($results_collections->collections as $result) {
+                $new_path = $result->link;
+                if(isset($result->id)){  
+                    $new_path = "/rest/collections/".$result->id; 
+                }
+
                 $list['list'][] = array(
                     'dynload'=>true,
                     'title' => $result->name,
                     'children'=> array(),
-					'path' => $result->link,
+					'path' => $new_path,
                     'icon' => $CFG->wwwroot."/repository/dspacerepo/pix/col.jpeg", 
                 );
             }            
 
-		   $list['path'] = array(array('name'=>'Comunidades','path'=>'/'), array('name'=>$results_communities->name, 'path'=>$path ));
+
+            $new_name = $results_collections->name;
+            if (isset($results_communities->name)){
+                $new_name = $results_collections->name;
+            }
+
+		   $list['path'] = array(array('name'=>'Comunidades','path'=>'/'), array('name'=>$new_name, 'path'=>$path ));
            
            //$this->supported_returntypes()->FILE_EXTERNAL;
         }
-        
         elseif(array_search("collections",$pathArray)){
+           
+
             //print_r($path);
 		    $results = $this->call_api("GET", str_replace("/rest/","",$path)."/?expand=items");
-			//print_r($results);
-           
-        
-        /////////////////////////////
-        $countItems= count($results->items);
-        
-
-        $meta = array();
-        $license  = optional_param('license', $CFG->sitedefaultlicense, PARAM_TEXT);
-                      
-        foreach($results->items as $result) {
-            $meta = $this->call_api("GET", "items/".$result->id ."/?expand=metadata");
-            $mdata = $this->call_api("GET", "items/".$result->id ."/metadata");
-            ///Palacios:hacemos un arreglo por referencia
-            $metar = array();
-            //$meta->metadata[$i]->key
-
-            for($i=0; $i<count($meta[0]->metadata);$i++){
-                $metar[$meta[0]->metadata[$i]->key]=$meta[0]->metadata[$i]->value;
-           }
-
-
-            //$indexItem = 0;
-            //foreach ($mdata->metadataentry as $m ) {
-            //     die($m.'<-');
-                //$indexItem++;
-                
-                //$metar[$m->key]=$m->value;
-            //}
-
-            //var_dump($meta[0]->metadata[0]->value);
-            //var_dump($metar);
             
-                $dateItem = explode("-",$metar["dc.date.available"] );
-                $day = $dateItem[2][0] . $dateItem[2][1];
-                $hour = $dateItem[2][3] . $dateItem[2][4];
-                $minute = $dateItem[2][6] . $dateItem[2][7];
-                $second = $dateItem[2][9] . $dateItem[2][10];
-                $date = mktime($hour, $minute, $second, $dateItem[1], $day, $dateItem[0]);
+            //var_dump($results);
+            /////////////////////////////
+            $countItems= count($results->items);
+            
+            $meta = array();
+            $license  = optional_param('license', $CFG->sitedefaultlicense, PARAM_TEXT);
+
+            $indexItem = -1;
+            foreach($results->items as $result) {
+                $indexItem++;
+
+                    $meta = $this->call_api("GET", "items/".$result->id ."/?expand=metadata");
+                        
+                
+                    if(is_array($meta)){              
+                        ///Observacion:hacemos un arreglo por referencia
+                        $metar = array();
+                        for($i=0; $i<count($meta[0]->metadata);$i++){
+                            $metar[$meta[0]->metadata[$i]->key]=$meta[0]->metadata[$i]->value;
+                        }
+
+                           
+                    $dateItem = explode("-",$metar["dc.date.available"] );
+                    $day = $dateItem[2][0] . $dateItem[2][1];
+                    $hour = $dateItem[2][3] . $dateItem[2][4];
+                    $minute = $dateItem[2][6] . $dateItem[2][7];
+                    $second = $dateItem[2][9] . $dateItem[2][10];
+                    $date = mktime($hour, $minute, $second, $dateItem[1], $day, $dateItem[0]);
 
 
-            $list['list'][] = array(
-                'dynload'=>true,
-                'title' => $result->name,
-                'url' => str_replace("rest","handle",$this->api_url).$result->handle,
-                'source' => str_replace("rest","handle",$this->api_url).$result->handle,
-                //'title'=> $metar["dc.title"],
-                //'url' => $metar["dc.identifier.uri"],
-                //'source' => $metar["dc.identifier.uri"],
-                'author' => $metar["dc.contributor.author"],
-                'license' => $license,
-                'date' => $date,
-            );
+                $list['list'][] = array(
+                    'dynload'=>true,
+                    'title' => $result->name,
+                    'url' => str_replace("rest","handle",$this->api_url).$result->handle,
+                    'source' => str_replace("rest","handle",$this->api_url).$result->handle,
+                    //'title'=> $metar["dc.title"],
+                    //'url' => $metar["dc.identifier.uri"],
+                    //'source' => $metar["dc.identifier.uri"],
+                    'author' => $metar["dc.contributor.author"],
+                    'license' => $license,
+                    'date' => $date,
+                );
+                    } else {
+                        
+                        $meta_old = $this->call_api("GET", "items/".$result->id ."/?expand=metadata", false, true);
 
+                        foreach ($meta_old as $keym => $valuem) {
+                            if($keym=="metadata"){
+                                
+                                
+                                foreach ($valuem as $key => $value) 
+                                {
+                                    //print_r($value);
+                                    if($value['key']=="dc.contributor.author"){
 
-         }
-       
-    //     $list['path'] = array(array('name'=>'items','path'=>'/'), array('name'=>$pathArray[1], 'path'=>'/'.$pathArray[1]));
+                                        //;
+                                        $author = $value['value'];                                           
+                                        //print_r($list['list'][ $indexItem]['author']);
+                                    }else if($value['key']=="dc.title"){
+                                         $title = $value['value'];
+                                      }else if($value['key']=="dc.identifier.uri"){
+                                          $url = $value['value'];
+                                          $source = $value['value'];
+                                      }else if($value['key']=="dc.date.available") {
+                                          $dateItem = explode("-", $value['value']);
+                                          $day = $dateItem[2][0] . $dateItem[2][1];
+                                          $hour = $dateItem[2][3] . $dateItem[2][4];
+                                          $minute = $dateItem[2][6] . $dateItem[2][7];
+                                          $second = $dateItem[2][9] . $dateItem[2][10];
+                                          $date = mktime($hour, $minute, $second, $dateItem[1], $day, $dateItem[0]);
+                    
+                                          //$list['list'][$indexItem]['date'] = $date;
+                                      }else if($value['key']=="dc.description.abstract"){
+                                          //$list['list'][ $indexItem]['abstract'] = $value['value'];
+                                      }else if($value['key']=="dc.subject"){
+                                          //$list['list'][ $indexItem]['keywords'] = $value['value'];
+                                      }else{
+                                          //$list['list'][ $indexItem]['path'] = "/".$pathArray[1]."/".$result->id . "/";
+                                          //$license  = optional_param('license', $CFG->sitedefaultlicense, PARAM_TEXT);
+                                          //$list['list'][$indexItem]['license']=$license;
+                                      }
+                                }
+                            }
+                        }
+
+                        //print_r($title." - ".$author." - ".$date);
+
+                        $list['list'][] = array(
+                            'dynload'=>true,
+                            'title' =>  $title,
+                            'url' => str_replace("rest","handle",$this->api_url).$url,
+                            'source' => str_replace("rest","handle",$this->api_url).$source,
+                            //'title'=> $metar["dc.title"],
+                            //'url' => $metar["dc.identifier.uri"],
+                            //'source' => $metar["dc.identifier.uri"],
+                            'author' => $author,
+                            'license' => $license,
+                            'date' => $date,
+                        );
+                    }
+            }
+            
         
-    // }
-        /////////////////////////
-        
-        
-        
-		   $list['path'] = array(array('name'=>'Comunidades','path'=>'/'), array('name'=>$result->name, 'path'=>$path ));
+		   $list['path'] = array(array('name'=>'Comunidades','path'=>'/'), array('name'=>$results->name, 'path'=>$path ));
            
            //$this->supported_returntypes()->FILE_EXTERNAL;
         }
@@ -207,18 +267,11 @@ class repository_dspacerepo extends repository {
             $list['path'] = array(array('name'=>'Comunidades','path'=>'/'));
         }
 
-       
-           
-		 
-
         return $list; 
     }
 
-
-
     // REST
-
-    function call_api($method, $endpoint, $data = false)
+    function call_api($method, $endpoint, $data = false, $old = false)
     {
 	
         $curl = curl_init();
@@ -251,8 +304,16 @@ class repository_dspacerepo extends repository {
 
         curl_close($curl);
 
-        return json_decode($result); 
+        if($old){
+            $array = json_decode($result, true);
+        }else{
+           $array = json_decode($result);
+        }
+
+        return $array; 
     }
+
+
 	 public function set_option($options = array()) {
         if (!empty($options['dspace_url'])) {
             set_config('dspace_url', trim($options['dspace_url']), 'dspacerepo');
